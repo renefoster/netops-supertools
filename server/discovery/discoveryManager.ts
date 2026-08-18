@@ -1,3 +1,5 @@
+import net from 'net';
+import dnsPromises from 'dns/promises';
 import { db } from '../db';
 import { events } from '../events';
 import { DiscoveryHost, DiscoveryScanSession, DeviceType, DeviceBrand, PollProtocol } from '../../src/types/netops';
@@ -46,7 +48,6 @@ export class DiscoveryManager {
         ips.push(`${prefix3}.${start + i}`);
       }
     } else {
-      // Default to scanning first /24 chunk
       const prefix3 = `${ipParts[0]}.${ipParts[1]}.${ipParts[2]}`;
       for (let i = 1; i <= 254; i++) {
         ips.push(`${prefix3}.${i}`);
@@ -87,7 +88,7 @@ export class DiscoveryManager {
 
     db.discoverySessions.set(scanId, session);
 
-    // Run simulated discovery scan in background batches
+    // Run real live network scan in parallel batches
     this.executeScanAsync(session, ips);
 
     return session;
@@ -97,87 +98,68 @@ export class DiscoveryManager {
     session: DiscoveryScanSession,
     ips: string[]
   ) {
-    const batchSize = 10;
+    const batchSize = 15;
+    const commonPorts = [80, 443, 22, 53, 8080, 161, 8291, 8728, 5000, 554];
     const knownDevices = Array.from(db.devices.values());
 
     for (let i = 0; i < ips.length; i += batchSize) {
       const batch = ips.slice(i, i + batchSize);
 
-      for (const ip of batch) {
-        session.scanned_ips += 1;
+      await Promise.all(
+        batch.map(async (ip) => {
+          session.scanned_ips += 1;
 
-        // Check if matching device already exists in inventory
-        const existing = knownDevices.find((d) => d.ip === ip);
+          // Check if device exists in registered inventory
+          const existing = knownDevices.find((d) => d.ip === ip);
 
-        // Or randomly simulate additional unmanaged devices on subnet
-        const isIpEndingFound =
-          existing !== undefined ||
-          ip.endsWith('.1') ||
-          ip.endsWith('.2') ||
-          ip.endsWith('.10') ||
-          ip.endsWith('.11') ||
-          ip.endsWith('.12') ||
-          ip.endsWith('.15') ||
-          ip.endsWith('.20') ||
-          ip.endsWith('.25') ||
-          ip.endsWith('.30') ||
-          ip.endsWith('.45') || // Unmanaged Apple TV in Master 
-          ip.endsWith('.88'); // Unmanaged Sonos Soundbar
+          // Perform real port check across common ports
+          const openPorts: number[] = [];
+          let isAlive = existing !== undefined;
 
-        if (isIpEndingFound) {
-          let mac = existing?.mac;
-          let hostname = existing?.name;
-          let vendor = existing?.vendor;
-          let brand: DeviceBrand = existing?.brand || 'generic';
-          let type: DeviceType = existing?.type || 'other';
-          let protocol: PollProtocol = existing?.protocol || 'icmp';
-          let openPorts: number[] = [80];
-
-          if (existing) {
-            openPorts =
-              existing.type === 'router'
-                ? [22, 80, 443, 8291, 8728, 53]
-                : existing.type === 'switch'
-                ? [22, 80, 161]
-                : existing.type === 'camera'
-                ? [80, 554, 8000]
-                : existing.type === 'nas'
-                ? [80, 443, 5000, 5001, 22]
-                : [80, 443];
-          } else if (ip.endsWith('.45')) {
-            mac = '3C:22:FB:99:88:77';
-            hostname = 'AppleTV-Master';
-            vendor = 'Apple Inc.';
-            type = 'other';
-            brand = 'generic';
-            openPorts = [7000, 5000, 80];
-          } else if (ip.endsWith('.88')) {
-            mac = 'B4:B0:24:11:33:55';
-            hostname = 'Sonos-LivingRoom-Arc';
-            vendor = 'Sonos Inc.';
-            type = 'other';
-            brand = 'generic';
-            openPorts = [1400, 1443, 443];
+          for (const port of commonPorts) {
+            const state = await this.quickTcpProbe(ip, port, 180);
+            if (state === 'open') {
+              isAlive = true;
+              openPorts.push(port);
+            } else if (state === 'refused') {
+              isAlive = true;
+            }
           }
 
-          const host: DiscoveryHost = {
-            ip,
-            mac,
-            hostname,
-            vendor,
-            open_ports: openPorts,
-            discovered_at: Date.now(),
-            estimated_brand: brand,
-            estimated_type: type,
-            suggested_protocol: protocol,
-          };
+          if (isAlive) {
+            let hostname = existing?.name;
+            let mac = existing?.mac;
+            let vendor = existing?.vendor;
+            let brand: DeviceBrand = existing?.brand || 'generic';
+            let type: DeviceType = existing?.type || 'other';
+            let protocol: PollProtocol = existing?.protocol || 'icmp';
 
-          session.found_hosts.push(host);
-        }
-      }
+            // Real Reverse DNS Lookup
+            if (!hostname) {
+              try {
+                const revs = await dnsPromises.reverse(ip);
+                if (revs && revs[0]) hostname = revs[0];
+              } catch {
+                // Ignore
+              }
+            }
 
-      // Small delay between batches to mimic real ICMP/ARP sweeps
-      await new Promise((r) => setTimeout(r, 60));
+            const host: DiscoveryHost = {
+              ip,
+              mac,
+              hostname: hostname || `Host (${ip})`,
+              vendor: vendor || 'Network Device',
+              open_ports: openPorts.length > 0 ? openPorts : [80],
+              discovered_at: Date.now(),
+              estimated_brand: brand,
+              estimated_type: type,
+              suggested_protocol: protocol,
+            };
+
+            session.found_hosts.push(host);
+          }
+        })
+      );
 
       events.broadcast('discovery:progress', {
         scan_id: session.scan_id,
@@ -193,6 +175,34 @@ export class DiscoveryManager {
     events.broadcast('discovery:complete', {
       scan_id: session.scan_id,
       total_found: session.found_hosts.length,
+    });
+  }
+
+  private static quickTcpProbe(ip: string, port: number, timeoutMs = 180): Promise<'open' | 'refused' | 'closed'> {
+    return new Promise((resolve) => {
+      const socket = new net.Socket();
+      socket.setTimeout(timeoutMs);
+
+      socket.on('connect', () => {
+        socket.destroy();
+        resolve('open');
+      });
+
+      socket.on('timeout', () => {
+        socket.destroy();
+        resolve('closed');
+      });
+
+      socket.on('error', (err: any) => {
+        socket.destroy();
+        if (err.code === 'ECONNREFUSED') {
+          resolve('refused');
+        } else {
+          resolve('closed');
+        }
+      });
+
+      socket.connect(port, ip);
     });
   }
 }

@@ -322,6 +322,16 @@ router.put('/devices/:id', (req: Request, res: Response) => {
   res.json({ success: true, data: updated, error: null });
 });
 
+router.delete('/devices', (req: Request, res: Response) => {
+  db.devices.clear();
+  db.pollHistory.clear();
+  db.latestPoll.clear();
+  db.simFailures.clear();
+  db.saveDevices();
+  events.broadcast('devices:cleared', {});
+  res.json({ success: true, data: { message: 'All devices cleared successfully.' }, error: null });
+});
+
 router.delete('/devices/:id', (req: Request, res: Response) => {
   const id = req.params.id;
   if (!db.devices.has(id)) {

@@ -35,6 +35,52 @@ class NetOpsDatabase {
   }
 
   private loadInitialData() {
+    const isSeedDisabled = process.env.SEED_DEMO_DATA === 'false' || process.env.SEED_DEMO_DATA === '0';
+
+    if (isSeedDisabled) {
+      if (fs.existsSync(DEVICES_FILE)) {
+        try {
+          const raw = fs.readFileSync(DEVICES_FILE, 'utf-8');
+          const list: Device[] = JSON.parse(raw);
+          // Filter out demo devices (keep custom user devices if any)
+          const userDevices = list.filter((d) => !d.id.startsWith('dev-core-') && !d.id.startsWith('dev-dist-') && !d.id.startsWith('dev-access-') && !d.id.startsWith('dev-cam-') && !d.id.startsWith('dev-ap-') && !d.id.startsWith('dev-nas-') && !d.id.startsWith('dev-guest-') && !d.id.startsWith('dev-iot-') && !d.id.startsWith('dev-cctv-') && !d.id.startsWith('dev-tplink-') && !d.id.startsWith('dev-starlink-'));
+          userDevices.forEach((d) => this.devices.set(d.id, d));
+        } catch {
+          this.devices.clear();
+        }
+      } else {
+        this.devices.clear();
+      }
+      this.saveDevices();
+
+      if (fs.existsSync(ALERTS_FILE)) {
+        try {
+          const raw = fs.readFileSync(ALERTS_FILE, 'utf-8');
+          this.alerts = JSON.parse(raw);
+        } catch {
+          this.alerts = [];
+        }
+      } else {
+        this.alerts = [];
+        this.saveAlerts();
+      }
+
+      if (fs.existsSync(BACKUPS_FILE)) {
+        try {
+          const raw = fs.readFileSync(BACKUPS_FILE, 'utf-8');
+          this.backups = JSON.parse(raw);
+        } catch {
+          this.backups = [];
+        }
+      } else {
+        this.backups = [];
+        this.saveBackups();
+      }
+
+      this.schedules = [];
+      return;
+    }
+
     // Load devices
     if (fs.existsSync(DEVICES_FILE)) {
       try {
@@ -168,11 +214,11 @@ interface TenGigabitEthernet1/1/1
  switchport trunk allowed vlan 10,20,30,40,99
 !
 interface TenGigabitEthernet1/1/2
- description Trunk to SW-01-PoE
+ description Trunk to SW01-PoE
  switchport mode trunk
 !
 interface TenGigabitEthernet1/1/3
- description Trunk to SW-02-PoE
+ description Trunk to SW02-PoE
  switchport mode trunk
 !
 end`,

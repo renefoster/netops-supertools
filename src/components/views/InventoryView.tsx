@@ -24,7 +24,7 @@ interface InventoryViewProps {
 }
 
 export const InventoryView: React.FC<InventoryViewProps> = ({ onSelectDevice }) => {
-  const { devices, latestPolls, addDevice, updateDevice, deleteDevice, pollDeviceNow } = useNetOps();
+  const { devices, latestPolls, addDevice, updateDevice, deleteDevice, clearAllDevices, pollDeviceNow } = useNetOps();
 
   const [search, setSearch] = useState('');
   const [zoneFilter, setZoneFilter] = useState('all');
@@ -205,6 +205,20 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ onSelectDevice }) 
         </div>
 
         <div className="flex items-center gap-2">
+          {devices.length > 0 && (
+            <button
+              onClick={async () => {
+                if (window.confirm('Are you sure you want to clear all devices from inventory? This action cannot be undone.')) {
+                  await clearAllDevices();
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/40 rounded-lg text-xs font-medium transition"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Clear All Devices</span>
+            </button>
+          )}
+
           <button
             onClick={handleExportCSV}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0f1522] hover:bg-[#1a2438] text-[#8892a4] hover:text-white border border-[#1e2d45] rounded-lg text-xs font-medium transition"
@@ -417,7 +431,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ onSelectDevice }) 
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full px-3 py-1.5 bg-[#0f1522] border border-[#1e2d45] rounded-lg text-white"
-                    placeholder="e.g. SW-03-PoE"
+                    placeholder="e.g. SW03-PoE"
                   />
                 </div>
                 <div>

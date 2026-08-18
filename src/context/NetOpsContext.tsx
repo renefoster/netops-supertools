@@ -21,6 +21,7 @@ interface NetOpsContextType {
   addDevice: (data: Partial<Device>) => Promise<Device>;
   updateDevice: (id: string, data: Partial<Device>) => Promise<Device>;
   deleteDevice: (id: string) => Promise<void>;
+  clearAllDevices: () => Promise<void>;
   pollDeviceNow: (id: string) => Promise<PollResult>;
   toggleSimFailure: (id: string, fail: boolean) => Promise<void>;
   acknowledgeAlert: (alertId: string | number) => Promise<void>;
@@ -181,6 +182,15 @@ export const NetOpsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await refreshData();
   };
 
+  const clearAllDevices = async (): Promise<void> => {
+    const res = await fetch('/api/devices', { method: 'DELETE' }).then((r) => r.json());
+    if (!res.success) throw new Error(res.error || 'Failed to clear devices');
+    setDevices([]);
+    setLatestPolls({});
+    setSelectedDevice(null);
+    await refreshData();
+  };
+
   const pollDeviceNow = async (id: string): Promise<PollResult> => {
     const res = await fetch(`/api/devices/${id}/poll-now`, { method: 'POST' }).then((r) => r.json());
     if (!res.success) throw new Error(res.error || 'Failed to poll device');
@@ -231,6 +241,7 @@ export const NetOpsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addDevice,
         updateDevice,
         deleteDevice,
+        clearAllDevices,
         pollDeviceNow,
         toggleSimFailure,
         acknowledgeAlert,
