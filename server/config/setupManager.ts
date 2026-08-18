@@ -134,11 +134,11 @@ export class SetupManager {
     };
   }
 
-  public static testDatabaseConnection(config: DatabaseConfig): {
+  public static async testDatabaseConnection(config: DatabaseConfig): Promise<{
     success: boolean;
     message: string;
     details: Record<string, any>;
-  } {
+  }> {
     if (config.type === 'sqlite') {
       const scan = this.scanSqliteDirectory();
       return {
@@ -154,22 +154,52 @@ export class SetupManager {
       if (!config.host || !config.database || !config.username) {
         return {
           success: false,
-          message: 'MySQL connection requires Host, Database Name, and Username.',
+          message: 'MySQL / MariaDB connection requires Host, Database Name, and Username.',
           details: { error_code: 'ERR_MISSING_DB_FIELDS' },
         };
       }
-      return {
-        success: true,
-        message: `Successfully validated MySQL / MariaDB connection parameters for ${config.username}@${config.host}:${config.port || 3306}/${config.database}. Handshake verified.`,
-        details: {
-          engine: 'MySQL / MariaDB Protocol 10',
+
+      try {
+        const mysql = await import('mysql2/promise');
+        const startTime = Date.now();
+        const conn = await mysql.createConnection({
           host: config.host,
-          port: config.port || 3306,
+          port: Number(config.port) || 3306,
           database: config.database,
-          ssl: config.ssl || 'disable',
-          ping_latency_ms: 1.8,
-        },
-      };
+          user: config.username,
+          password: config.password || '',
+          ssl: config.ssl === 'require' ? { rejectUnauthorized: false } : undefined,
+          connectTimeout: 5000,
+        });
+
+        await conn.ping();
+        const latencyMs = Date.now() - startTime;
+        await conn.end();
+
+        return {
+          success: true,
+          message: `Successfully connected to MySQL / MariaDB at ${config.username}@${config.host}:${config.port || 3306}/${config.database}. Handshake verified in ${latencyMs}ms.`,
+          details: {
+            engine: 'MySQL / MariaDB Protocol 10',
+            host: config.host,
+            port: config.port || 3306,
+            database: config.database,
+            ssl: config.ssl || 'disable',
+            ping_latency_ms: latencyMs,
+          },
+        };
+      } catch (err: any) {
+        return {
+          success: false,
+          message: `MySQL connection failed: ${err.message || 'Unable to establish connection to database server'}`,
+          details: {
+            error_code: err.code || 'ERR_MYSQL_CONNECT_FAILED',
+            host: config.host,
+            port: config.port || 3306,
+            database: config.database,
+          },
+        };
+      }
     }
 
     if (config.type === 'postgres') {
@@ -180,18 +210,53 @@ export class SetupManager {
           details: { error_code: 'ERR_MISSING_DB_FIELDS' },
         };
       }
-      return {
-        success: true,
-        message: `Successfully validated PostgreSQL connection parameters for ${config.username}@${config.host}:${config.port || 5432}/${config.database}. Connection pool ready.`,
-        details: {
-          engine: 'PostgreSQL 16.x Compatible',
+
+      try {
+        const pg = await import('pg');
+        const Client = pg.default?.Client || pg.Client;
+        const startTime = Date.now();
+
+        const client = new Client({
           host: config.host,
-          port: config.port || 5432,
+          port: Number(config.port) || 5432,
           database: config.database,
-          ssl: config.ssl || 'prefer',
-          ping_latency_ms: 2.1,
-        },
-      };
+          user: config.username,
+          password: config.password || '',
+          ssl: config.ssl === 'require' ? { rejectUnauthorized: false } : (config.ssl === 'prefer' ? { rejectUnauthorized: false } : false),
+          connectionTimeoutMillis: 5000,
+        });
+
+        await client.connect();
+        const res = await client.query('SELECT version();');
+        const latencyMs = Date.now() - startTime;
+        await client.end();
+
+        const pgVersion = res.rows[0]?.version || 'PostgreSQL Server';
+
+        return {
+          success: true,
+          message: `Successfully connected to PostgreSQL at ${config.username}@${config.host}:${config.port || 5432}/${config.database}. Connection pool ready in ${latencyMs}ms.`,
+          details: {
+            engine: pgVersion,
+            host: config.host,
+            port: config.port || 5432,
+            database: config.database,
+            ssl: config.ssl || 'prefer',
+            ping_latency_ms: latencyMs,
+          },
+        };
+      } catch (err: any) {
+        return {
+          success: false,
+          message: `PostgreSQL connection failed: ${err.message || 'Unable to establish connection to database server'}`,
+          details: {
+            error_code: err.code || 'ERR_POSTGRES_CONNECT_FAILED',
+            host: config.host,
+            port: config.port || 5432,
+            database: config.database,
+          },
+        };
+      }
     }
 
     return {
@@ -226,7 +291,7 @@ export class SetupManager {
     };
 
     try {
-      addLog('INFO', 'Starting  NetOps Super Tools Automated Installer...');
+      addLog('INFO', 'Starting Villa NetOps Super Tools Automated Installer...');
 
       // 1. Validate Password Strength
       addLog('INFO', 'Validating administrative credentials & security policies...');
@@ -266,7 +331,17 @@ export class SetupManager {
         fs.writeFileSync(SQLITE_DB_FILE, Buffer.from('SQLite format 3\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0', 'utf-8'));
         addLog('SUCCESS', 'SQLite schema tables successfully created and indexed.');
       } else {
-        addLog('INFO', `Connecting to remote ${payload.db_config.type.toUpperCase()} server at ${payload.db_config.host}:${payload.db_config.port || 3306}...`);
+        addLog('INFO', `Attempting live connection to remote ${payload.db_config.type.toUpperCase()} server at ${payload.db_config.host}:${payload.db_config.port || (payload.db_config.type === 'postgres' ? 5432 : 3306)}...`);
+        const connTest = await SetupManager.testDatabaseConnection(payload.db_config);
+        if (!connTest.success) {
+          addLog('ERROR', `Remote database connection failed: ${connTest.message}`);
+          return {
+            success: false,
+            logs,
+            error: connTest.message,
+          };
+        }
+        addLog('SUCCESS', `Successfully connected and verified database access to "${payload.db_config.database}".`);
         addLog('INFO', `Synchronizing schema and foreign key constraints on database "${payload.db_config.database}"...`);
         addLog('SUCCESS', `Database tables successfully provisioned on remote ${payload.db_config.type.toUpperCase()} instance.`);
       }
@@ -322,12 +397,12 @@ export class SetupManager {
       // 7. Write/Update .env file
       try {
         const envLines = [
-          `#  NetOps Generated Configuration - ${new Date().toISOString()}`,
+          `# Villa NetOps Generated Configuration - ${new Date().toISOString()}`,
           `SETUP_COMPLETED=true`,
           `DB_TYPE=${payload.db_config.type}`,
           `DB_HOST=${payload.db_config.host || '127.0.0.1'}`,
           `DB_PORT=${payload.db_config.port || (payload.db_config.type === 'postgres' ? 5432 : 3306)}`,
-          `DB_NAME=${payload.db_config.database || '_netops'}`,
+          `DB_NAME=${payload.db_config.database || 'villa_netops'}`,
           `DB_USER=${payload.db_config.username || 'root'}`,
           `COMPANY_NAME="${payload.company_info.name}"`,
           `ADMIN_USERNAME="${adminUser.username}"`,
@@ -342,7 +417,7 @@ export class SetupManager {
 
       // 8. Finalize System State
       addLog('INFO', 'Locking installation wizard routes (SETUP_COMPLETED=true)...');
-      addLog('SUCCESS', ' NetOps Super Tools setup completed successfully! Ready for production operations.');
+      addLog('SUCCESS', 'Villa NetOps Super Tools setup completed successfully! Ready for production operations.');
 
       return {
         success: true,
