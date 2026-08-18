@@ -1,0 +1,68 @@
+[
+  {
+    "id": "bk-1787043877594-g35buw",
+    "device_id": "dev-core-router-01",
+    "device_name": "CCR2004-Core-Router",
+    "filename": "CCR2004-Core-Router_2026-08-18_v5.rsc",
+    "content": "# RouterOS 7.14.3 Configuration Export\n# Device: CCR2004-Core-Router [192.168.1.1]\n# Generated: 2026-08-18T09:04:37.594Z\n/system identity set name=\"CCR2004-Core-Router\"\n/interface bridge add name=bridge-lan vlan-filtering=yes\n/interface ethernet\nset [ find default-name=ether1 ] name=ether1-LAN comment=\"Main Server Room - Rack A1\"\n/ip address\nadd address=192.168.1.1/24 interface=bridge-lan network=192.168.1.0\n/ip firewall filter\nadd action=accept chain=input connection-state=established,related\nadd action=drop chain=input in-interface=ether1-WAN connection-state=invalid\n/system clock set time-zone-name=Asia/Singapore\n/system ntp client set enabled=yes servers=pool.ntp.org",
+    "backup_type": "manual",
+    "version": 5,
+    "created_at": 1787043877594,
+    "size_bytes": 679
+  },
+  {
+    "id": "bk-1787041505579-j4d758",
+    "device_id": "dev-core-router-01",
+    "device_name": "CCR2004-Core-Router",
+    "filename": "CCR2004-Core-Router_2026-08-18_v4.rsc",
+    "content": "# RouterOS 7.14.3 Configuration Export\n# Device: CCR2004-Core-Router [192.168.1.1]\n# Generated: 2026-08-18T08:25:05.579Z\n/system identity set name=\"CCR2004-Core-Router\"\n/interface bridge add name=bridge-lan vlan-filtering=yes\n/interface ethernet\nset [ find default-name=ether1 ] name=ether1-LAN comment=\"Main Server Room - Rack A1\"\n/ip address\nadd address=192.168.1.1/24 interface=bridge-lan network=192.168.1.0\n/ip firewall filter\nadd action=accept chain=input connection-state=established,related\nadd action=drop chain=input in-interface=ether1-WAN connection-state=invalid\n/system clock set time-zone-name=Asia/Singapore\n/system ntp client set enabled=yes servers=pool.ntp.org",
+    "backup_type": "manual",
+    "version": 4,
+    "created_at": 1787041505579,
+    "size_bytes": 679
+  },
+  {
+    "id": "bk-1787041367574-3bmq31",
+    "device_id": "dev-core-router-01",
+    "device_name": "CCR2004-Core-Router",
+    "filename": "CCR2004-Core-Router_2026-08-18_v3.rsc",
+    "content": "# RouterOS 7.14.3 Configuration Export\n# Device: CCR2004-Core-Router [192.168.1.1]\n# Generated: 2026-08-18T08:22:47.574Z\n/system identity set name=\"CCR2004-Core-Router\"\n/interface bridge add name=bridge-lan vlan-filtering=yes\n/interface ethernet\nset [ find default-name=ether1 ] name=ether1-LAN comment=\"Main Server Room - Rack A1\"\n/ip address\nadd address=192.168.1.1/24 interface=bridge-lan network=192.168.1.0\n/ip firewall filter\nadd action=accept chain=input connection-state=established,related\nadd action=drop chain=input in-interface=ether1-WAN connection-state=invalid\n/system clock set time-zone-name=Asia/Singapore\n/system ntp client set enabled=yes servers=pool.ntp.org",
+    "backup_type": "manual",
+    "version": 3,
+    "created_at": 1787041367574,
+    "size_bytes": 679
+  },
+  {
+    "id": "bk-1787040582597-xp0rr8",
+    "device_id": "dev-core-router-01",
+    "device_name": "CCR2004-Core-Router",
+    "filename": "CCR2004-Core-Router_2026-08-18_v2.rsc",
+    "content": "# RouterOS 7.14.3 Configuration Export\n# Device: CCR2004-Core-Router [192.168.1.1]\n# Generated: 2026-08-18T08:09:42.597Z\n/system identity set name=\"CCR2004-Core-Router\"\n/interface bridge add name=bridge-lan vlan-filtering=yes\n/interface ethernet\nset [ find default-name=ether1 ] name=ether1-LAN comment=\"Main Server Room - Rack A1\"\n/ip address\nadd address=192.168.1.1/24 interface=bridge-lan network=192.168.1.0\n/ip firewall filter\nadd action=accept chain=input connection-state=established,related\nadd action=drop chain=input in-interface=ether1-WAN connection-state=invalid\n/system clock set time-zone-name=Asia/Singapore\n/system ntp client set enabled=yes servers=pool.ntp.org",
+    "backup_type": "manual",
+    "version": 2,
+    "created_at": 1787040582597,
+    "size_bytes": 679
+  },
+  {
+    "id": "bk-ccr2004-01",
+    "device_id": "dev-core-router-01",
+    "device_name": "CCR2004-Core-Router",
+    "filename": "CCR2004-Core-Router_2026-08-15.rsc",
+    "backup_type": "automated",
+    "version": 1,
+    "created_at": 1786779513010,
+    "size_bytes": 42350,
+    "content": "# MikroTik RouterOS Configuration Export\n# Model: CCR2004-1G-12S+2XS\n# Exported by  NetOps Automated Engine\n/interface bridge\nadd name=bridge-vlan-trunk vlan-filtering=yes\n/interface ethernet\nset [ find default-name=sfp-sfpplus1 ] name=sfp-plus1-WAN1-Fiber comment=\"Primary 1Gbps Leased Line\"\nset [ find default-name=sfp-sfpplus2 ] name=sfp-plus2-WAN2-Starlink comment=\"Backup Starlink High-Performance\"\nset [ find default-name=sfp-sfpplus3 ] name=sfp-plus3-CoreDistribution-10G\n/interface vlan\nadd interface=bridge-vlan-trunk name=vlan10-mgmt vlan-id=10\nadd interface=bridge-vlan-trunk name=vlan20-guest vlan-id=20\nadd interface=bridge-vlan-trunk name=vlan30-cctv vlan-id=30\nadd interface=bridge-vlan-trunk name=vlan40-iot vlan-id=40\n/ip pool\nadd name=pool-guest ranges=10.20.0.10-10.20.0.250\nadd name=pool-mgmt ranges=192.168.1.100-192.168.1.200\n/ip dhcp-server\nadd address-pool=pool-guest interface=vlan20-guest lease-time=4h name=dhcp-guest\n/ip firewall nat\nadd action=masquerade chain=srcnat out-interface=sfp-plus1-WAN1-Fiber"
+  },
+  {
+    "id": "bk-cisco-dist-01",
+    "device_id": "dev-dist-switch-01",
+    "device_name": "Cisco-Core-Distribution-SW",
+    "filename": "Cisco-Core-Distribution-SW_2026-08-16.cfg",
+    "backup_type": "automated",
+    "version": 1,
+    "created_at": 1786865913010,
+    "size_bytes": 28400,
+    "content": "! Cisco IOS Software, Catalyst L3 Distribution Switch\n!  Core Aggregation Layer\nversion 17.6\nservice timestamps debug datetime msec\nservice timestamps log datetime msec\nhostname Cisco-Core-Distribution-SW\n!\nspanning-tree mode rapid-pvst\nspanning-tree extend system-id\n!\nvlan 10,20,30,40,99\n!\ninterface TenGigabitEthernet1/1/1\n description Trunk to CCR2004 Core Router\n switchport mode trunk\n switchport trunk allowed vlan 10,20,30,40,99\n!\ninterface TenGigabitEthernet1/1/2\n description Trunk to SW-01-PoE\n switchport mode trunk\n!\ninterface TenGigabitEthernet1/1/3\n description Trunk to SW-02-PoE\n switchport mode trunk\n!\nend"
+  }
+]

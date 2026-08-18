@@ -1,0 +1,6 @@
+{
+  "name": "NetOps SuperTools",
+  "description": "Self-hosted network operations platform for IT Officers: live device monitoring, topology visualization, automated RCA & anomaly detection, inventory, backups, and AI diagnostics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
