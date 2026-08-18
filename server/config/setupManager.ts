@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import pg from 'pg';
+import mysql from 'mysql2/promise';
 import { db } from '../db';
 
 export interface DatabaseConfig {
@@ -160,7 +162,6 @@ export class SetupManager {
       }
 
       try {
-        const mysql = await import('mysql2/promise');
         const startTime = Date.now();
         const conn = await mysql.createConnection({
           host: config.host,
@@ -212,8 +213,7 @@ export class SetupManager {
       }
 
       try {
-        const pg = await import('pg');
-        const Client = pg.default?.Client || pg.Client;
+        const Client = pg.Client || (pg as any).default?.Client;
         const startTime = Date.now();
 
         const client = new Client({
