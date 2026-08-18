@@ -1,9 +1,26 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import pg from 'pg';
-import mysql from 'mysql2/promise';
 import { db } from '../db';
+
+function getPgModule() {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('pg');
+    return mod.default || mod;
+  } catch {
+    return null;
+  }
+}
+
+function getMysqlModule() {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('mysql2/promise');
+  } catch {
+    return null;
+  }
+}
 
 export interface DatabaseConfig {
   type: 'sqlite' | 'mysql' | 'postgres';
@@ -161,9 +178,18 @@ export class SetupManager {
         };
       }
 
+      const mysqlMod = getMysqlModule();
+      if (!mysqlMod) {
+        return {
+          success: false,
+          message: "MySQL driver 'mysql2' is not available in the server runtime environment.",
+          details: { error_code: 'ERR_MYSQL_DRIVER_MISSING' },
+        };
+      }
+
       try {
         const startTime = Date.now();
-        const conn = await mysql.createConnection({
+        const conn = await mysqlMod.createConnection({
           host: config.host,
           port: Number(config.port) || 3306,
           database: config.database,
@@ -212,8 +238,17 @@ export class SetupManager {
         };
       }
 
+      const pgMod = getPgModule();
+      if (!pgMod) {
+        return {
+          success: false,
+          message: "PostgreSQL driver 'pg' is not available in the server runtime environment.",
+          details: { error_code: 'ERR_POSTGRES_DRIVER_MISSING' },
+        };
+      }
+
       try {
-        const Client = pg.Client || (pg as any).default?.Client;
+        const Client = pgMod.Client || pgMod;
         const startTime = Date.now();
 
         const client = new Client({
@@ -291,7 +326,7 @@ export class SetupManager {
     };
 
     try {
-      addLog('INFO', 'Starting Villa NetOps Super Tools Automated Installer...');
+      addLog('INFO', 'Starting  NetOps Super Tools Automated Installer...');
 
       // 1. Validate Password Strength
       addLog('INFO', 'Validating administrative credentials & security policies...');
@@ -397,12 +432,12 @@ export class SetupManager {
       // 7. Write/Update .env file
       try {
         const envLines = [
-          `# Villa NetOps Generated Configuration - ${new Date().toISOString()}`,
+          `#  NetOps Generated Configuration - ${new Date().toISOString()}`,
           `SETUP_COMPLETED=true`,
           `DB_TYPE=${payload.db_config.type}`,
           `DB_HOST=${payload.db_config.host || '127.0.0.1'}`,
           `DB_PORT=${payload.db_config.port || (payload.db_config.type === 'postgres' ? 5432 : 3306)}`,
-          `DB_NAME=${payload.db_config.database || 'villa_netops'}`,
+          `DB_NAME=${payload.db_config.database || '_netops'}`,
           `DB_USER=${payload.db_config.username || 'root'}`,
           `COMPANY_NAME="${payload.company_info.name}"`,
           `ADMIN_USERNAME="${adminUser.username}"`,
@@ -417,7 +452,7 @@ export class SetupManager {
 
       // 8. Finalize System State
       addLog('INFO', 'Locking installation wizard routes (SETUP_COMPLETED=true)...');
-      addLog('SUCCESS', 'Villa NetOps Super Tools setup completed successfully! Ready for production operations.');
+      addLog('SUCCESS', ' NetOps Super Tools setup completed successfully! Ready for production operations.');
 
       return {
         success: true,

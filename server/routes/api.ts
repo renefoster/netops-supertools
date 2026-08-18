@@ -153,7 +153,7 @@ router.get('/auth/me', (req: Request, res: Response) => {
     success: true,
     data: {
       user: authCheck.user,
-      company_name: config?.company_info.name || 'Villa Operations',
+      company_name: config?.company_info.name || ' Operations',
       company_info: config?.company_info,
     },
     error: null,
@@ -588,7 +588,7 @@ router.post('/tools/run-unit-tests', async (req: Request, res: Response) => {
 
     // 4. DNS Resolver Tool
     await runTest('DNS Record Resolver', 'Diagnostics', 3, async () => {
-      const res = await DiagnosticTools.dnsLookup('router.villa.lan', 'A');
+      const res = await DiagnosticTools.dnsLookup('router..lan', 'A');
       if (!res.records || res.records.length === 0 || res.records[0].value !== '192.168.1.1') {
         throw new Error('DNS resolution returned incorrect record value');
       }
@@ -604,7 +604,7 @@ router.post('/tools/run-unit-tests', async (req: Request, res: Response) => {
 
     // 6. Gemini AI Troubleshoot Engine
     await runTest('Gemini 3.7 Flash Action Plan Engine', 'AI & Intelligence', 4, async () => {
-      const res = await DiagnosticTools.aiTroubleshoot('Villa 1 living room AP latency is 120ms');
+      const res = await DiagnosticTools.aiTroubleshoot(' 1 living room AP latency is 120ms');
       if (!res.model_used.includes('gemini') && !res.model_used.includes('NOC')) throw new Error('Incorrect AI model version');
       return `Generated action plan with severity: ${res.action_plan_summary?.incident_severity || 'HIGH'} using ${res.model_used}`;
     });
